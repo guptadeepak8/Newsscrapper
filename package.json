@@ -1,0 +1,12 @@
+{
+  "name": "news-backend",
+  "version": "1.0.0",
+  "description": "Backend for the news scraper",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.17.1"
+  }
+}

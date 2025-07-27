@@ -1,7 +1,7 @@
-# This file will contain the code for scraping and summarizing news.
 import requests
 from bs4 import BeautifulSoup
 from transformers import pipeline
+import json
 
 def scrape_news(url):
     """
@@ -9,7 +9,6 @@ def scrape_news(url):
     """
     response = requests.get(url)
     soup = BeautifulSoup(response.content, 'html.parser')
-    # Find all the news stories
     articles = soup.find_all('div', class_='eachStory')
 
     news_items = []
@@ -23,14 +22,6 @@ def scrape_news(url):
             news_items.append({'title': title, 'link': link})
 
     return news_items
-
-def summarize_text(text):
-    """
-    Summarizes the given text using a pre-trained model.
-    """
-    summarizer = pipeline('summarization', model='t5-small')
-    summary = summarizer(text, max_length=150, min_length=30, do_sample=False)
-    return summary[0]['summary_text']
 
 def get_article_text(url):
     """
@@ -47,6 +38,39 @@ def get_article_text(url):
     except Exception as e:
         return f"Error fetching article: {e}"
 
+def summarize_text(text):
+    """
+    Summarizes the given text using a pre-trained model.
+    """
+    summarizer = pipeline('summarization', model='t5-small')
+    summary = summarizer(text, max_length=150, min_length=30, do_sample=False)
+    return summary[0]['summary_text']
+
+def calculate_score(title, summary):
+    """
+    Calculates a score for a news article based on keywords.
+    """
+    score = 0
+    keywords = {
+        'high_impact': ['crash', 'surge', 'plunge', 'rally', 'record high', 'record low'],
+        'medium_impact': ['earnings', 'profit', 'loss', 'fda', 'approval', 'rate cut'],
+        'low_impact': ['analyst', 'opinion', 'expert view']
+    }
+
+    text = title.lower() + ' ' + summary.lower()
+
+    for word in keywords['high_impact']:
+        if word in text:
+            score += 10
+    for word in keywords['medium_impact']:
+        if word in text:
+            score += 5
+    for word in keywords['low_impact']:
+        if word in text:
+            score += 2
+
+    return score
+
 if __name__ == '__main__':
     # URL of the news website to scrape
     news_url = "https://economictimes.indiatimes.com/markets/stocks/news"
@@ -54,14 +78,18 @@ if __name__ == '__main__':
     # Scrape news articles
     news_items = scrape_news(news_url)
 
-    print("--- Top Stock Market News ---")
+    articles = []
     # Summarize and display each article
     for item in news_items:
-        print(f"**{item['title']}**")
         article_text = get_article_text(item['link'])
         if "Could not find article body." not in article_text and "Error fetching article:" not in article_text:
             summary = summarize_text(article_text)
-            print(f"Summary: {summary}")
-        else:
-            print("Could not summarize article.")
-        print("-" * 30)
+            score = calculate_score(item['title'], summary)
+            articles.append({
+                "title": item['title'],
+                "summary": summary,
+                "score": score
+            })
+
+    with open('news.json', 'w') as f:
+        json.dump({"articles": articles}, f)
